@@ -137,6 +137,27 @@ Credentials:
 
 `rke2-clean-node.sh` will attempt to stop services, unmount Kubernetes/containerd mounts, and **delete data from `/data` and system paths**.
 
+Before wiping a node, **remove it from the cluster** to avoid leaving the cluster in a broken / inconsistent state.
+
+On a machine with `kubectl` access to the cluster (typically the server node):
+
+```bash
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+
+# 1) Stop scheduling new pods
+kubectl cordon <NODE_NAME>
+
+# 2) Evict workloads safely (adjust flags for your environment)
+kubectl drain <NODE_NAME> --ignore-daemonsets --delete-emptydir-data
+
+# 3) Remove the node object from the cluster
+kubectl delete node <NODE_NAME>
+```
+
+Notes:
+- If the node is an **RKE2 server/control-plane**, do not wipe it unless you understand quorum/etcd implications.
+- Draining may fail if you have strict PodDisruptionBudgets; resolve those before proceeding.
+
 Only run it if you fully understand the impact:
 
 ```bash
@@ -279,6 +300,27 @@ Tài khoản mặc định:
 ### Gỡ / dọn sạch node (NGUY HIỂM)
 
 `rke2-clean-node.sh` sẽ dừng service, unmount các mount liên quan, và **xoá dữ liệu ở `/data` + nhiều đường dẫn hệ thống**.
+
+Trước khi xoá sạch một node, bạn nên **loại node đó ra khỏi cluster** để tránh cluster bị “lệch trạng thái” hoặc gặp lỗi khó xử lý.
+
+Chạy trên máy có `kubectl` truy cập được vào cluster (thường là node server):
+
+```bash
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+
+# 1) Không cho schedule pod mới lên node này
+kubectl cordon <NODE_NAME>
+
+# 2) Di chuyển workload ra khỏi node (tuỳ môi trường có thể cần chỉnh flags)
+kubectl drain <NODE_NAME> --ignore-daemonsets --delete-emptydir-data
+
+# 3) Xoá object node khỏi cluster
+kubectl delete node <NODE_NAME>
+```
+
+Lưu ý:
+- Nếu node là **RKE2 server/control-plane**, đừng wipe nếu bạn chưa hiểu rõ ảnh hưởng tới quorum/etcd.
+- Nếu drain bị kẹt vì PodDisruptionBudget (PDB), hãy xử lý PDB trước khi tiếp tục.
 
 Chỉ chạy khi bạn chắc chắn:
 
