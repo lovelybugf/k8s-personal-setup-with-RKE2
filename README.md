@@ -334,3 +334,15 @@ Script yêu cầu gõ `YES` để xác nhận.
 
 - Rancher mặc định mật khẩu `admin` → hãy đổi ngay sau khi đăng nhập.
 - Kubeconfig đang để `0644` → tuỳ môi trường bạn có thể cần siết quyền truy cập.
+
+<!-- auto-committer-log -->
+
+---
+
+## 📅 Activity Log
+
+| Date | Status |
+|------|--------|
+| 2026-04-29 19:17:57 | ✅ Updated |
+
+> 🤖 Auto-maintained by Git Auto Committer
