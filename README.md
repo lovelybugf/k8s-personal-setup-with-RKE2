@@ -343,6 +343,6 @@ Script yêu cầu gõ `YES` để xác nhận.
 
 | Date | Status |
 |------|--------|
-| 2026-05-18 17:54:20 | ✅ Updated |
+| 2026-05-17 19:20:19 | ✅ Updated |
 
 > 🤖 Auto-maintained by Git Auto Committer
