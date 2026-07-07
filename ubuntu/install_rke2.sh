@@ -77,9 +77,6 @@ runtime-endpoint: unix:///run/k3s/containerd/containerd.sock
 image-endpoint: unix:///run/k3s/containerd/containerd.sock
 EOF
 
-echo "===== WAIT START ====="
-sleep 60
-
 echo "===== VERIFY ====="
 if [ "$ROLE" == "init" ]; then
   export KUBECONFIG=$KUBECONFIG_PATH
