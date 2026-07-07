@@ -62,13 +62,10 @@ else
   systemctl restart rke2-agent
 fi
 
-echo "===== WAIT START ====="
-sleep 60
-
 echo "===== SYMLINK BINARIES & CONFIG CRICTL ====="
-if [ -d /var/lib/rancher/rke2/bin ]; then
-  ln -sf /var/lib/rancher/rke2/bin/kubectl /usr/local/bin/kubectl || true
-  ln -sf /var/lib/rancher/rke2/bin/crictl /usr/local/bin/crictl || true
+if [ -d $DATA_DIR/bin ]; then
+  ln -sf $DATA_DIR/bin/kubectl /usr/local/bin/kubectl || true
+  ln -sf $DATA_DIR/bin/crictl /usr/local/bin/crictl || true
 fi
 
 # Configure crictl
@@ -76,6 +73,9 @@ cat <<EOF > /etc/crictl.yaml
 runtime-endpoint: unix:///run/k3s/containerd/containerd.sock
 image-endpoint: unix:///run/k3s/containerd/containerd.sock
 EOF
+
+echo "===== WAIT START ====="
+sleep 60
 
 echo "===== VERIFY ====="
 if [ "$ROLE" == "init" ]; then
