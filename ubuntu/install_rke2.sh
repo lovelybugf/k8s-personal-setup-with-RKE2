@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 NODE_IP=$1
 ROLE=$2          # init | join
