@@ -1,348 +1,242 @@
-# k8s-personal-setup-with-RKE2
+# RKE2 Kubernetes Homelab Bootstrap Scripts
 
 Opinionated bootstrap scripts to stand up a small **RKE2** Kubernetes cluster and (optionally) install **Rancher** on top.
 
-- **Target**: personal / homelab clusters (quick setup, simple defaults)
-- **OS**: Debian/Ubuntu-like Linux (uses `apt`)
-- **Scope**: node preparation, RKE2 server/agent install, Rancher install, and a “wipe node” helper
+- **Target**: Homelabs, development, or personal clusters (quick setup, simple defaults)
+- **Supported OS Families**:
+  - **Debian/Ubuntu-like** (Debian, Ubuntu) using `apt`
+  - **RHEL-like** (Red Hat Enterprise Linux, Rocky Linux, AlmaLinux, CentOS) using `dnf`/`yum`
+- **Scope**: OS preparation, RKE2 server/agent setup, Rancher deployment, and node teardown.
 
 ---
 
-## English
+## 📂 Repository Layout
 
-### Features
+To prevent OS command conflicts (such as package managers or firewall systems), the bootstrap scripts are cleanly separated into dedicated directories:
 
-- **Host preparation**: installs common tools, disables swap, configures kernel modules + sysctl for Kubernetes
-- **RKE2 install**:
-  - **Init** node (server) with SAN set to your node IP
-  - **Join** nodes (agent) using server IP + cluster token
-- **Rancher install** on the cluster via Helm, using `sslip.io` hostname
-- **Full wipe helper** to remove RKE2/K3s/containerd/kube state (dangerous)
-
-### Repository layout
-
-- `prepare.sh`: basic OS/node prep for Kubernetes
-- `install_rke2.sh`: install RKE2 as `server` (init) or `agent` (join)
-- `get_token.sh`: prints the RKE2 node token from `/data/rke2/server/node-token`
-- `install_rancher.sh`: installs cert-manager + Rancher (Helm) and configures local-path storage under `/data`
-- `rke2-clean-node.sh`: **DANGEROUS** full wipe of Kubernetes-related state (including `/data`)
-
-### Prerequisites
-
-- **Linux** node(s) with `apt` (Ubuntu/Debian)
-- **Root / sudo** access
-- **Network**:
-  - Nodes can reach each other over the LAN
-  - Inbound to the RKE2 server: **9345/tcp** (RKE2 supervisor) and **6443/tcp** (Kubernetes API)
-  - If installing Rancher: **443/tcp** to the node where Rancher is exposed
-
-### Quickstart (1 server + 1+ agents)
-
-#### 0) Prepare every node
-
-Run on each node:
-
-```bash
-sudo bash prepare.sh
+```text
+.
+├── rhel/                      # For RHEL, Rocky Linux, AlmaLinux, CentOS
+│   ├── prepare.sh             # Sets up chronyd, SELinux Permissive/Disabled, NetworkManager, swap, modules
+│   ├── install_rke2.sh        # Installs RKE2 (server/agent), symlinks kubectl/crictl, creates local-path dir
+│   ├── get_token.sh           # Retrieves cluster join token
+│   ├── install_rancher.sh     # Deploys Helm, cert-manager, local-path storage, and Rancher Server
+│   └── rke2-clean-node.sh     # Official killall/uninstall + force-deletes persistent directories
+│
+├── ubuntu/                    # For Debian, Ubuntu
+│   ├── prepare.sh             # Sets up timesyncd, UFW disable, swap, modules
+│   ├── install_rke2.sh        # Installs RKE2 (server/agent), symlinks kubectl/crictl, creates local-path dir
+│   ├── get_token.sh           # Retrieves cluster join token
+│   ├── install_rancher.sh     # Deploys Helm, cert-manager, local-path storage, and Rancher Server
+│   └── rke2-clean-node.sh     # Official killall/uninstall + force-deletes persistent directories
+│
+└── README.md                  # This documentation
 ```
 
-Reboot if your environment requires it (kernel/module changes usually take effect immediately, but rebooting is often the least surprising option).
+---
 
-#### 1) Init the first server node
+## 🇺🇸 English Guide
 
-On the node you want as the first control-plane/server:
+### 📋 Prerequisites & Network
+- **Permissions**: Root or sudo privileges on all nodes.
+- **Port requirements**:
+  - Open **6443/tcp** (Kubernetes API) and **9345/tcp** (RKE2 Supervisor) on the Server node.
+  - Open **443/tcp** on the node running Rancher.
+  - Allow inner-cluster CNI communication (e.g., Canal uses vxlan port **8472/udp**).
 
-```bash
-sudo bash install_rke2.sh <NODE_IP> init
-```
+---
 
-Notes:
-- This writes config to `/etc/rancher/rke2/config.yaml`
-- Cluster data dir is `/data/rke2`
-- Kubeconfig will be at `/etc/rancher/rke2/rke2.yaml` (mode `0644`)
+### 🚀 Step-by-Step Setup Guide
 
-#### 2) Get the join token
+#### 0. Prepare the Operating System
+Run the OS preparation script on **every node** (both Server and Agent).
 
-On the server node:
+*   **For Ubuntu/Debian**:
+    ```bash
+    sudo bash ubuntu/prepare.sh
+    ```
+*   **For RHEL-based OS**:
+    ```bash
+    sudo bash rhel/prepare.sh
+    ```
+    > [!IMPORTANT]
+    > **For RHEL-based systems, you MUST reboot the node after running the script** (`sudo reboot`). This is mandatory for SELinux disable rules and NetworkManager unmanaged interface settings to take full effect.
 
-```bash
-sudo bash get_token.sh
-```
+#### 1. Initialize the first Server node
+On the node chosen as the control-plane/Server:
 
-Save the printed token.
+*   **For Ubuntu/Debian**:
+    ```bash
+    sudo bash ubuntu/install_rke2.sh <NODE_IP> init
+    ```
+*   **For RHEL-based OS**:
+    ```bash
+    sudo bash rhel/install_rke2.sh <NODE_IP> init
+    ```
+*   *Note*: The script automatically links `kubectl` and `crictl` to `/usr/local/bin` and configures `crictl` for easy container management.
 
-#### 3) Join agent nodes
+#### 2. Retrieve the Join Token
+On the initialized Server node, print and copy the token:
+*   **For Ubuntu/Debian**: `sudo bash ubuntu/get_token.sh`
+*   **For RHEL-based OS**: `sudo bash rhel/get_token.sh`
 
-On each additional node:
+#### 3. Join Agent nodes
+On each additional worker/Agent node:
 
-```bash
-sudo bash install_rke2.sh <NODE_IP> join <SERVER_IP> <TOKEN>
-```
+*   **For Ubuntu/Debian**:
+    ```bash
+    sudo bash ubuntu/install_rke2.sh <NODE_IP> join <SERVER_IP> <TOKEN>
+    ```
+*   **For RHEL-based OS**:
+    ```bash
+    sudo bash rhel/install_rke2.sh <NODE_IP> join <SERVER_IP> <TOKEN>
+    ```
 
-The script will print recent `rke2-agent` logs at the end to help you spot issues.
-
-#### 4) Verify from the server node
-
-On the server node:
-
+#### 4. Verify the Cluster
+On the Server node, check the status of your nodes:
 ```bash
 export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 kubectl get nodes -o wide
 ```
 
-### Install Rancher (optional)
+---
 
-Run this on the server node (or any node with working `kubectl` context to the cluster):
+### 🖥️ Install Rancher (Optional)
+Run this script from the Server node (or any machine configured with access to `kubectl`):
 
-```bash
-export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-sudo bash install_rancher.sh <NODE_IP>
-```
+*   **For Ubuntu/Debian**:
+    ```bash
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    sudo bash ubuntu/install_rancher.sh <NODE_IP>
+    ```
+*   **For RHEL-based OS**:
+    ```bash
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    sudo bash rhel/install_rancher.sh <NODE_IP>
+    ```
 
-What it does:
-- Installs Helm (via upstream script)
-- Installs cert-manager (currently pinned to `v1.14.5`)
-- Reconfigures `local-path-provisioner` to store PV data under `/data/local-path`
-- Installs Rancher with:
-  - **hostname**: `<NODE_IP>.sslip.io`
-  - **bootstrapPassword**: `admin`
-  - **replicas**: `1`
-  - **persistence**: enabled (`10Gi`, `local-path`)
-
-After it finishes, open:
-- `https://<NODE_IP>.sslip.io`
-
-Credentials:
-- user: `admin`
-- pass: `admin`
-
-### Troubleshooting
-
-- **RKE2 server not ready**:
-  - `sudo systemctl status rke2-server --no-pager`
-  - `sudo journalctl -u rke2-server -n 200 --no-pager`
-- **Agent can’t join**:
-  - Verify **9345/tcp** from agent → server is reachable
-  - Verify the token is correct and unmodified
-  - `sudo journalctl -u rke2-agent -n 200 --no-pager`
-- **kubectl not found**:
-  - RKE2 installs `kubectl` at `/var/lib/rancher/rke2/bin/kubectl`
-  - Either add it to `PATH`, or call it directly
-- **Rancher rollout times out**:
-  - Check cert-manager pods: `kubectl -n cert-manager get pods`
-  - Check Rancher pods: `kubectl -n cattle-system get pods`
-  - Check events: `kubectl -n cattle-system get events --sort-by=.lastTimestamp | tail -n 50`
-
-### Uninstall / clean the node (DANGEROUS)
-
-`rke2-clean-node.sh` will attempt to stop services, unmount Kubernetes/containerd mounts, and **delete data from `/data` and system paths**.
-
-Before wiping a node, **remove it from the cluster** to avoid leaving the cluster in a broken / inconsistent state.
-
-On a machine with `kubectl` access to the cluster (typically the server node):
-
-```bash
-export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-
-# 1) Stop scheduling new pods
-kubectl cordon <NODE_NAME>
-
-# 2) Evict workloads safely (adjust flags for your environment)
-kubectl drain <NODE_NAME> --ignore-daemonsets --delete-emptydir-data
-
-# 3) Remove the node object from the cluster
-kubectl delete node <NODE_NAME>
-```
-
-Notes:
-- If the node is an **RKE2 server/control-plane**, do not wipe it unless you understand quorum/etcd implications.
-- Draining may fail if you have strict PodDisruptionBudgets; resolve those before proceeding.
-
-Only run it if you fully understand the impact:
-
-```bash
-sudo bash rke2-clean-node.sh
-```
-
-It requires you to type `YES` before proceeding.
-
-### Security notes
-
-- Rancher is installed with **bootstrap password `admin`**. Change it immediately.
-- Kubeconfig is written with mode `0644` on the init node. Restrict it if your environment requires stricter access.
+**What it does:**
+- Installs Helm and adds the `rancher-latest` repository.
+- Deploys `cert-manager` (version pinned to `v1.14.5`).
+- Reconfigures `local-path-provisioner` storage path mapping to `/data/local-path`.
+- Deploys stateless Rancher Server pointing to `<NODE_IP>.sslip.io` with bootstrap password `admin`.
 
 ---
 
-## Tiếng Việt
+### ⚠️ Teardown / Clean Node
+If you need to uninstall RKE2 and delete all cluster data, execute the clean-node script.
 
-### Giới thiệu
-
-Repo này chứa các script “bootstrap” theo hướng đơn giản/nhanh để dựng một cụm **Kubernetes RKE2** (1 server + nhiều agent) và (tuỳ chọn) cài **Rancher** lên trên.
-
-- **Mục tiêu**: homelab / môi trường cá nhân
-- **Hệ điều hành**: Linux dạng Debian/Ubuntu (có `apt`)
-- **Phạm vi**: chuẩn bị node, cài RKE2 server/agent, cài Rancher, và script xoá sạch dữ liệu node
-
-### Cấu trúc repo
-
-- `prepare.sh`: cài gói cần thiết, tắt swap, bật kernel modules + sysctl cho Kubernetes
-- `install_rke2.sh`: cài RKE2 theo vai trò `init` (server) hoặc `join` (agent)
-- `get_token.sh`: in token join từ `/data/rke2/server/node-token`
-- `install_rancher.sh`: cài cert-manager + Rancher qua Helm, cấu hình local-path lưu ở `/data`
-- `rke2-clean-node.sh`: **NGUY HIỂM** xoá sạch state K8s/RKE2/K3s/containerd (bao gồm `/data`)
-
-### Yêu cầu trước khi chạy
-
-- **Linux** (Ubuntu/Debian) có `apt`
-- **Quyền root / sudo**
-- **Mạng/Port**:
-  - Các node truy cập được lẫn nhau
-  - Mở vào node server: **9345/tcp** và **6443/tcp**
-  - Nếu cài Rancher: truy cập **443/tcp** tới node expose Rancher
-
-### Cài nhanh (1 server + 1+ agent)
-
-#### 0) Chuẩn bị trên tất cả các node
-
-Chạy trên từng node:
+> [!CAUTION]
+> This will wipe all containers, configurations, and persistent volumes under `/data`!
 
 ```bash
-sudo bash prepare.sh
+# For Ubuntu
+sudo bash ubuntu/rke2-clean-node.sh
+
+# For RHEL
+sudo bash rhel/rke2-clean-node.sh
 ```
 
-Nếu bạn muốn “chắc ăn”, có thể reboot sau khi chạy (thường không bắt buộc).
+---
 
-#### 1) Init node server đầu tiên
+## 🇻🇳 Hướng dẫn Tiếng Việt
 
-Trên node bạn chọn làm server/control-plane:
+### 📋 Yêu cầu trước khi chạy & Cấu hình mạng
+- **Quyền hạn**: Quyền Root hoặc Sudo trên tất cả các node.
+- **Yêu cầu về Cổng (Ports)**:
+  - Mở cổng **6443/tcp** (Kubernetes API) và **9345/tcp** (RKE2 Supervisor) trên Server node.
+  - Mở cổng **443/tcp** trên node expose Rancher.
+  - Cho phép traffic nội bộ cụm (ví dụ Canal dùng cổng vxlan **8472/udp**).
 
-```bash
-sudo bash install_rke2.sh <NODE_IP> init
-```
+---
 
-Thông tin:
-- File cấu hình: `/etc/rancher/rke2/config.yaml`
-- Data dir: `/data/rke2`
-- Kubeconfig: `/etc/rancher/rke2/rke2.yaml` (mode `0644`)
+### 🚀 Quy trình triển khai từng bước
 
-#### 2) Lấy token để join
+#### 0. Chuẩn bị hệ điều hành (Run on all nodes)
+Chạy script chuẩn bị hệ thống trên **từng node** (cả Server và Agent).
 
-Trên node server:
+*   **Với Ubuntu/Debian**:
+    ```bash
+    sudo bash ubuntu/prepare.sh
+    ```
+*   **Với các hệ điều hành nhân RHEL**:
+    ```bash
+    sudo bash rhel/prepare.sh
+    ```
+    > [!IMPORTANT]
+    > **Với RHEL-based OS, bạn BẮT BUỘC phải khởi động lại máy** (`sudo reboot`) sau khi chạy script này để cấu hình tắt SELinux và nạp lại cấu hình bỏ qua card mạng ảo của NetworkManager có hiệu lực hoàn toàn.
 
-```bash
-sudo bash get_token.sh
-```
+#### 1. Khởi tạo node Server (Control-plane) đầu tiên
+Trên node được chọn làm control-plane:
 
-Copy lại token.
+*   **Với Ubuntu/Debian**:
+    ```bash
+    sudo bash ubuntu/install_rke2.sh <NODE_IP> init
+    ```
+*   **Với RHEL-based OS**:
+    ```bash
+    sudo bash rhel/install_rke2.sh <NODE_IP> init
+    ```
+*   *Lưu ý*: Script tự động tạo liên kết động (symlink) đưa lệnh `kubectl` và `crictl` ra toàn hệ thống tại thư mục `/usr/local/bin` và cấu hình sẵn file socket của `crictl`.
 
-#### 3) Join các node agent
+#### 2. Lấy Token để Agent kết nối
+Trên node Server, lấy token:
+*   **Với Ubuntu/Debian**: `sudo bash ubuntu/get_token.sh`
+*   **Với RHEL-based OS**: `sudo bash rhel/get_token.sh`
 
-Trên mỗi node còn lại:
+#### 3. Join các node Agent (Worker)
+Trên các node Agent còn lại, chạy lệnh trỏ về IP của Server kèm Token:
 
-```bash
-sudo bash install_rke2.sh <NODE_IP> join <SERVER_IP> <TOKEN>
-```
+*   **Với Ubuntu/Debian**:
+    ```bash
+    sudo bash ubuntu/install_rke2.sh <NODE_IP> join <SERVER_IP> <TOKEN>
+    ```
+*   **Với RHEL-based OS**:
+    ```bash
+    sudo bash rhel/install_rke2.sh <NODE_IP> join <SERVER_IP> <TOKEN>
+    ```
 
-Script sẽ in log cuối của `rke2-agent` để bạn kiểm tra nhanh.
-
-#### 4) Kiểm tra cụm từ node server
-
-Trên node server:
-
+#### 4. Kiểm tra cụm K8s
+Từ node Server, chạy lệnh kiểm tra trạng thái các node:
 ```bash
 export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 kubectl get nodes -o wide
 ```
 
-### Cài Rancher (tuỳ chọn)
+---
 
-Chạy trên node server (hoặc node nào có `kubectl` trỏ tới cluster):
+### 🖥️ Cài đặt giao diện Rancher (Tùy chọn)
+Chạy script này từ node Server (hoặc bất kỳ máy nào cấu hình sẵn file `KUBECONFIG` trỏ về cụm):
 
-```bash
-export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-sudo bash install_rancher.sh <NODE_IP>
-```
-
-Script sẽ:
-- Cài Helm
-- Cài cert-manager (đang dùng `v1.14.5`)
-- Chỉnh `local-path-provisioner` lưu PV vào `/data/local-path`
-- Cài Rancher với:
-  - **hostname**: `<NODE_IP>.sslip.io`
-  - **bootstrapPassword**: `admin`
-  - **replicas**: `1`
-  - **persistence**: bật (`10Gi`, `local-path`)
-
-Truy cập:
-- `https://<NODE_IP>.sslip.io`
-
-Tài khoản mặc định:
-- user: `admin`
-- pass: `admin`
-
-### Xử lý lỗi nhanh
-
-- **Server RKE2 chưa lên**:
-  - `sudo systemctl status rke2-server --no-pager`
-  - `sudo journalctl -u rke2-server -n 200 --no-pager`
-- **Agent không join được**:
-  - Kiểm tra agent → server truy cập được **9345/tcp**
-  - Kiểm tra token đúng
-  - `sudo journalctl -u rke2-agent -n 200 --no-pager`
-- **Không có kubectl**:
-  - `kubectl` nằm ở `/var/lib/rancher/rke2/bin/kubectl`
-  - Thêm vào `PATH` hoặc gọi trực tiếp
-- **Rancher rollout bị timeout**:
-  - `kubectl -n cert-manager get pods`
-  - `kubectl -n cattle-system get pods`
-  - `kubectl -n cattle-system get events --sort-by=.lastTimestamp | tail -n 50`
-
-### Gỡ / dọn sạch node (NGUY HIỂM)
-
-`rke2-clean-node.sh` sẽ dừng service, unmount các mount liên quan, và **xoá dữ liệu ở `/data` + nhiều đường dẫn hệ thống**.
-
-Trước khi xoá sạch một node, bạn nên **loại node đó ra khỏi cluster** để tránh cluster bị “lệch trạng thái” hoặc gặp lỗi khó xử lý.
-
-Chạy trên máy có `kubectl` truy cập được vào cluster (thường là node server):
-
-```bash
-export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-
-# 1) Không cho schedule pod mới lên node này
-kubectl cordon <NODE_NAME>
-
-# 2) Di chuyển workload ra khỏi node (tuỳ môi trường có thể cần chỉnh flags)
-kubectl drain <NODE_NAME> --ignore-daemonsets --delete-emptydir-data
-
-# 3) Xoá object node khỏi cluster
-kubectl delete node <NODE_NAME>
-```
-
-Lưu ý:
-- Nếu node là **RKE2 server/control-plane**, đừng wipe nếu bạn chưa hiểu rõ ảnh hưởng tới quorum/etcd.
-- Nếu drain bị kẹt vì PodDisruptionBudget (PDB), hãy xử lý PDB trước khi tiếp tục.
-
-Chỉ chạy khi bạn chắc chắn:
-
-```bash
-sudo bash rke2-clean-node.sh
-```
-
-Script yêu cầu gõ `YES` để xác nhận.
-
-### Lưu ý bảo mật
-
-- Rancher mặc định mật khẩu `admin` → hãy đổi ngay sau khi đăng nhập.
-- Kubeconfig đang để `0644` → tuỳ môi trường bạn có thể cần siết quyền truy cập.
-
-<!-- auto-committer-log -->
+*   **Với Ubuntu/Debian**:
+    ```bash
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    sudo bash ubuntu/install_rancher.sh <NODE_IP>
+    ```
+*   **Với RHEL-based OS**:
+    ```bash
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    sudo bash rhel/install_rancher.sh <NODE_IP>
+    ```
 
 ---
 
-## 📅 Activity Log
+### ⚠️ Gỡ cài đặt / Dọn sạch Node (Teardown)
+Khi cần gỡ cài đặt RKE2 và xóa toàn bộ dữ liệu cụm để cài lại:
 
-| Date | Status |
-|------|--------|
-| 2026-05-20 00:49:59 | ✅ Updated |
+> [!CAUTION]
+> Thao tác này sẽ xóa sạch các container, cấu hình và dữ liệu Persistent Volumes lưu trong phân vùng `/data`!
 
-> 🤖 Auto-maintained by Git Auto Committer
+```bash
+# Cho Ubuntu/Debian
+sudo bash ubuntu/rke2-clean-node.sh
+
+# Cho RHEL-based
+sudo bash rhel/rke2-clean-node.sh
+```
+
+---
+
+## 🔒 Security & Best Practices / Lưu ý bảo mật
+- **Rancher Password**: Rancher được bootstrap với mật khẩu mặc định là `admin`. **Thay đổi mật khẩu quản trị ngay lập tức** trong lần đăng nhập đầu tiên.
+- **Kubeconfig Mode**: Để thuận tiện cho môi trường test/homelab, quyền truy cập tệp Kubeconfig (`/etc/rancher/rke2/rke2.yaml`) được cấu hình mặc định là `0644`. Trong môi trường production, hãy siết chặt quyền (`chmod 600`) để bảo vệ cụm tránh truy cập trái phép.

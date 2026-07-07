@@ -1,8 +1,16 @@
 #!/bin/bash
 
-# Update
+# Update and install utilities
 apt update -y
-apt install -y curl wget vim net-tools
+apt install -y curl wget vim net-tools systemd-timesyncd tar iptables
+
+# Enable and start time sync
+systemctl enable --now systemd-timesyncd
+
+# Disable firewall (UFW) permanently
+if command -v ufw >/dev/null 2>&1; then
+  ufw disable
+fi
 
 # Disable swap
 swapoff -a

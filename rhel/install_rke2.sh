@@ -22,6 +22,7 @@ hostnamectl set-hostname node-${NODE_IP//./-}
 echo "===== CREATE DATA DIR ====="
 mkdir -p $DATA_DIR
 mkdir -p /etc/rancher/rke2
+mkdir -p /data/local-path
 
 echo "===== WRITE CONFIG ====="
 
@@ -60,6 +61,18 @@ else
   systemctl enable rke2-agent
   systemctl restart rke2-agent
 fi
+
+echo "===== SYMLINK BINARIES & CONFIG CRICTL ====="
+if [ -d /var/lib/rancher/rke2/bin ]; then
+  ln -sf /var/lib/rancher/rke2/bin/kubectl /usr/local/bin/kubectl || true
+  ln -sf /var/lib/rancher/rke2/bin/crictl /usr/local/bin/crictl || true
+fi
+
+# Configure crictl
+cat <<EOF > /etc/crictl.yaml
+runtime-endpoint: unix:///run/k3s/containerd/containerd.sock
+image-endpoint: unix:///run/k3s/containerd/containerd.sock
+EOF
 
 echo "===== WAIT START ====="
 sleep 60

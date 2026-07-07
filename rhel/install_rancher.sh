@@ -68,10 +68,7 @@ helm install rancher rancher-latest/rancher \
   --namespace cattle-system \
   --set hostname=$HOSTNAME \
   --set replicas=1 \
-  --set bootstrapPassword=admin \
-  --set persistence.enabled=true \
-  --set persistence.storageClass=local-path \
-  --set persistence.size=10Gi
+  --set bootstrapPassword=admin
 
 # ===== 7. WAIT RANCHER READY =====
 echo "[7/8] Waiting Rancher ready..."
