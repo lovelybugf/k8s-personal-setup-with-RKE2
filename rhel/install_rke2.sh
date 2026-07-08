@@ -31,6 +31,7 @@ if [ "$ROLE" == "init" ]; then
 cat <<EOF > /etc/rancher/rke2/config.yaml
 data-dir: $DATA_DIR
 write-kubeconfig-mode: "0644"
+node-ip: $NODE_IP
 tls-san:
   - $NODE_IP
 EOF
@@ -43,6 +44,7 @@ cat <<EOF > /etc/rancher/rke2/config.yaml
 server: https://$SERVER_IP:9345
 token: $TOKEN
 data-dir: $DATA_DIR
+node-ip: $NODE_IP
 EOF
 
 INSTALL_TYPE="agent"
