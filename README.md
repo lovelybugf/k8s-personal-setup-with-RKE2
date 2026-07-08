@@ -32,7 +32,8 @@ To prevent OS command conflicts (such as package managers or firewall systems), 
 │   ├── rke2-clean-node.sh     # Official killall/uninstall + force-deletes persistent directories
 │   └── check_health.sh        # Configures local kubectl and performs cluster health checks
 │
-└── README.md                  # This documentation
+├── README.md                  # This documentation
+└── troubleshooting_ip_fix.md  # Multi-NIC IP routing troubleshooting log and guide
 ```
 
 ---
