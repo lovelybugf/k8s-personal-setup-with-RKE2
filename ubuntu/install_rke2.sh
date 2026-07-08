@@ -31,9 +31,17 @@ if [ "$ROLE" == "init" ]; then
 cat <<EOF > /etc/rancher/rke2/config.yaml
 data-dir: $DATA_DIR
 write-kubeconfig-mode: "0644"
+node-ip: $NODE_IP
 tls-san:
   - $NODE_IP
 EOF
+
+# If an optional Load Balancer IP or secondary IP is provided
+if [ -n "$SERVER_IP" ]; then
+  cat <<EOF >> /etc/rancher/rke2/config.yaml
+  - $SERVER_IP
+EOF
+fi
 
 INSTALL_TYPE="server"
 
@@ -43,6 +51,7 @@ cat <<EOF > /etc/rancher/rke2/config.yaml
 server: https://$SERVER_IP:9345
 token: $TOKEN
 data-dir: $DATA_DIR
+node-ip: $NODE_IP
 EOF
 
 INSTALL_TYPE="agent"
@@ -62,10 +71,13 @@ else
   systemctl restart rke2-agent
 fi
 
+echo "===== WAIT START ====="
+sleep 60
+
 echo "===== SYMLINK BINARIES & CONFIG CRICTL ====="
-if [ -d /var/lib/rancher/rke2/bin ]; then
-  ln -sf /var/lib/rancher/rke2/bin/kubectl /usr/local/bin/kubectl || true
-  ln -sf /var/lib/rancher/rke2/bin/crictl /usr/local/bin/crictl || true
+if [ -d $DATA_DIR/bin ]; then
+  ln -sf $DATA_DIR/bin/kubectl /usr/local/bin/kubectl || true
+  ln -sf $DATA_DIR/bin/crictl /usr/local/bin/crictl || true
 fi
 
 # Configure crictl
@@ -73,9 +85,6 @@ cat <<EOF > /etc/crictl.yaml
 runtime-endpoint: unix:///run/k3s/containerd/containerd.sock
 image-endpoint: unix:///run/k3s/containerd/containerd.sock
 EOF
-
-echo "===== WAIT START ====="
-sleep 60
 
 echo "===== VERIFY ====="
 if [ "$ROLE" == "init" ]; then

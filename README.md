@@ -21,14 +21,16 @@ To prevent OS command conflicts (such as package managers or firewall systems), 
 │   ├── install_rke2.sh        # Installs RKE2 (server/agent), symlinks kubectl/crictl, creates local-path dir
 │   ├── get_token.sh           # Retrieves cluster join token
 │   ├── install_rancher.sh     # Deploys Helm, cert-manager, local-path storage, and Rancher Server
-│   └── rke2-clean-node.sh     # Official killall/uninstall + force-deletes persistent directories
+│   ├── rke2-clean-node.sh     # Official killall/uninstall + force-deletes persistent directories
+│   └── check_health.sh        # Configures local kubectl and performs cluster health checks
 │
 ├── ubuntu/                    # For Debian, Ubuntu
 │   ├── prepare.sh             # Sets up timesyncd, UFW disable, swap, modules
 │   ├── install_rke2.sh        # Installs RKE2 (server/agent), symlinks kubectl/crictl, creates local-path dir
 │   ├── get_token.sh           # Retrieves cluster join token
 │   ├── install_rancher.sh     # Deploys Helm, cert-manager, local-path storage, and Rancher Server
-│   └── rke2-clean-node.sh     # Official killall/uninstall + force-deletes persistent directories
+│   ├── rke2-clean-node.sh     # Official killall/uninstall + force-deletes persistent directories
+│   └── check_health.sh        # Configures local kubectl and performs cluster health checks
 │
 └── README.md                  # This documentation
 ```
