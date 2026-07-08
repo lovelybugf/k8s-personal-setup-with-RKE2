@@ -41,6 +41,14 @@ echo "[5/8] Configuring storage to /data..."
 
 mkdir -p /data/local-path
 
+# Deploy local-path-provisioner if it does not exist in kube-system
+if ! kubectl get deployment local-path-provisioner -n kube-system >/dev/null 2>&1; then
+  echo "Installing local-path-provisioner in kube-system..."
+  curl -sL https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.28/deploy/local-path-storage.yaml | sed 's/namespace: local-path-storage/namespace: kube-system/g' | kubectl apply -f -
+  # Set as default storage class
+  kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+fi
+
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
