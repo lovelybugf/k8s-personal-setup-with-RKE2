@@ -36,6 +36,13 @@ tls-san:
   - $NODE_IP
 EOF
 
+# If an optional Load Balancer IP or secondary IP is provided
+if [ -n "$SERVER_IP" ]; then
+  cat <<EOF >> /etc/rancher/rke2/config.yaml
+  - $SERVER_IP
+EOF
+fi
+
 INSTALL_TYPE="server"
 
 else
