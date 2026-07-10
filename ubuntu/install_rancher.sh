@@ -25,6 +25,8 @@ helm repo update
 
 # ===== 3. CREATE NAMESPACE =====
 echo "[3/8] Creating namespace..."
+helm uninstall rancher -n cattle-system 2>/dev/null || true
+kubectl delete namespace cattle-system --ignore-not-found || true
 kubectl create namespace cattle-system 2>/dev/null || true
 
 # ===== 4. INSTALL CERT-MANAGER =====
@@ -35,6 +37,10 @@ echo "Waiting cert-manager..."
 kubectl wait --for=condition=available deploy/cert-manager -n cert-manager --timeout=180s
 kubectl wait --for=condition=available deploy/cert-manager-webhook -n cert-manager --timeout=180s
 kubectl wait --for=condition=available deploy/cert-manager-cainjector -n cert-manager --timeout=180s
+
+echo "Bypassing cert-manager webhook to prevent cross-node CNI network timeouts..."
+kubectl delete validatingwebhookconfiguration cert-manager-webhook 2>/dev/null || true
+kubectl delete mutatingwebhookconfiguration cert-manager-webhook 2>/dev/null || true
 
 # ===== 5. FIX STORAGE -> /data =====
 echo "[5/8] Configuring storage to /data..."
@@ -55,7 +61,7 @@ kubectl rollout restart deployment local-path-provisioner -n kube-system
 # ===== 6. INSTALL RANCHER =====
 echo "[6/8] Installing Rancher..."
 
-helm install rancher rancher-latest/rancher \
+helm upgrade --install rancher rancher-latest/rancher \
   --namespace cattle-system \
   --set hostname=$HOSTNAME \
   --set replicas=1 \

@@ -16,8 +16,8 @@ else
   echo "   Make sure this script is run on the Master node."
 fi
 
-# Ensure /usr/local/bin is in PATH (in case it is not)
-export PATH=$PATH:/usr/local/bin
+# Ensure /usr/local/bin and RKE2 bin are in PATH (in case it is not)
+export PATH=$PATH:/usr/local/bin:/var/lib/rancher/rke2/bin
 
 if ! command -v kubectl >/dev/null 2>&1; then
   echo "❌ Error: kubectl command not found!"
