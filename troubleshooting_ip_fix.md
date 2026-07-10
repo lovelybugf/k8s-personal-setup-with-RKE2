@@ -19,3 +19,22 @@ Ghi nhanh sự cố lệch IP card mạng nội bộ và cách sửa đổi.
     ```
 4.  **Cài đặt lại Worker**: Chạy script join vào Master với Token mới.
 5.  **Kiểm tra**: Chạy `bash check_health.sh` để cấu hình nhanh `kubectl` và kiểm tra cụm.
+
+## 3. Sự cố Webhook Rancher chặn cài đặt CNI Calico
+*   **Triệu chứng**: Khi chuyển đổi CNI sang `calico` hoặc cài đặt lại cụm mạng, các Pod của `coredns` bị kẹt ở trạng thái `ContainerCreating`. Logs của `tigera-operator` báo lỗi:
+    `admission webhook "rancher.cattle.io.namespaces.create-non-kubesystem" denied the request: Unauthorized`
+*   **Nguyên nhân**: Webhook bảo mật của Rancher tự động kiểm tra quyền tạo Namespace. Tài khoản `ServiceAccount` của `tigera-operator` khi cố tạo namespace `calico-system` chưa được phân quyền trong hệ thống Rancher nên bị Webhook chặn lại. Do không tạo được namespace, cụm mạng Calico không thể triển khai.
+*   **Cách khắc phục**:
+    1. Xóa cấu hình Webhook đang chặn của Rancher (Rancher sẽ tự động tạo lại nó sau đó):
+       ```bash
+       kubectl delete validatingwebhookconfiguration rancher.cattle.io
+       kubectl delete mutatingwebhookconfiguration rancher.cattle.io
+       ```
+    2. Khởi động lại Operator để kích hoạt việc cài đặt Calico ngay lập tức:
+       ```bash
+       kubectl rollout restart deployment/tigera-operator -n tigera-operator
+       ```
+    3. (Cách Bypass không cần xóa): Tạo thủ công namespace `calico-system` bằng quyền admin tối cao trước khi cài đặt Rancher (khi webhook chưa chạy). Lúc này Operator chỉ cần deploy Pod vào mà không cần gọi lệnh tạo mới:
+       ```bash
+       kubectl create namespace calico-system
+       ```
