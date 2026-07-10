@@ -38,9 +38,10 @@ kubectl wait --for=condition=available deploy/cert-manager -n cert-manager --tim
 kubectl wait --for=condition=available deploy/cert-manager-webhook -n cert-manager --timeout=180s
 kubectl wait --for=condition=available deploy/cert-manager-cainjector -n cert-manager --timeout=180s
 
-echo "Bypassing cert-manager webhook to prevent cross-node CNI network timeouts..."
+echo "Bypassing cert-manager and ingress-nginx webhooks to prevent cross-node CNI network timeouts..."
 kubectl delete validatingwebhookconfiguration cert-manager-webhook 2>/dev/null || true
 kubectl delete mutatingwebhookconfiguration cert-manager-webhook 2>/dev/null || true
+kubectl delete validatingwebhookconfiguration rke2-ingress-nginx-admission 2>/dev/null || true
 
 # ===== 5. FIX STORAGE -> /data =====
 echo "[5/8] Configuring storage to /data..."
